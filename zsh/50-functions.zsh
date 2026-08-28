@@ -149,6 +149,13 @@ NOTES
   note <text>   append timestamped line to today's note
   notes         fuzzy-search all notes
 
+THEME
+  theme         show current mode and whether it's following macOS
+  theme auto    follow macOS light/dark (default)
+  theme dark    pin to dark
+  theme light   pin to light
+  (prompt, iTerm2 colors, bat, delta, and fzf all switch together)
+
 KEYS
   Ctrl+R        fuzzy search command history
   Ctrl+T        fuzzy insert a file path

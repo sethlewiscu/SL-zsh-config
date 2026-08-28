@@ -8,6 +8,7 @@ Zsh configuration. Prompt: Powerlevel10k, two-line framed, path + git only.
 |---|---|
 | `.zshrc` | Thin loader. Oh My Zsh + plugins, then sources the modules below. |
 | `zsh/10-env.zsh` | PATH, history (100k entries, timestamped, shared across terminals), shell options. |
+| `zsh/15-theme.zsh` | Follows macOS light/dark. Loads before the prompt so colors are set at init. |
 | `zsh/20-tools.zsh` | fzf, zoxide, direnv, bat integration. |
 | `zsh/25-completion.zsh` | Tab-completion behavior: menu select, case-insensitive, grouped. |
 | `zsh/30-aliases.zsh` | Listing, navigation, JSON/API, Claude Code shortcuts. |
@@ -29,6 +30,30 @@ gitignored and sourced last:
 ```sh
 export CLICKUP_TOKEN="pk_..."
 ```
+
+## Theme
+
+Everything follows the macOS appearance setting: the prompt palette, iTerm2's
+background and ANSI colors, `bat`, `delta`, and `fzf`. Switching macOS between
+light and dark switches all of them, within 5 seconds at worst.
+
+```
+theme          # current mode
+theme dark     # pin to dark
+theme light    # pin to light
+theme auto     # go back to following macOS
+```
+
+Detection is cheap. Asking macOS directly costs ~15ms, so the per-prompt check
+first looks at the modification timestamp of the preferences file — a syscall
+with no process launch — and only asks macOS when that timestamp moves. A
+5-second poll covers the case where macOS batches the write and the timestamp
+lags behind the actual setting.
+
+Prompt colors are 256-color terminal indices in the 16–255 range, which are
+fixed RGB values rather than palette slots. That means they render identically
+regardless of which color scheme iTerm2 has loaded, so the two layers can't
+fight each other.
 
 ## Command reference
 

@@ -11,14 +11,7 @@ command -v direnv >/dev/null && eval "$(direnv hook zsh)"
 if command -v fzf >/dev/null; then
   source <(fzf --zsh) 2>/dev/null
 
-  export FZF_DEFAULT_OPTS="
-    --height=60% --layout=reverse --border=rounded --info=inline
-    --prompt='  ' --pointer='▶' --marker='✓'
-    --color=fg:-1,bg:-1,hl:#89b4fa
-    --color=fg+:#cdd6f4,bg+:#313244,hl+:#89b4fa
-    --color=info:#94e2d5,prompt:#cba6f7,pointer:#f38ba8
-    --color=marker:#a6e3a1,spinner:#f5c2e7,header:#6c7086
-    --color=border:#45475a"
+  # NOTE: FZF_DEFAULT_OPTS (colors) is set by 15-theme.zsh — it follows light/dark.
 
   if command -v fd >/dev/null; then
     export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
@@ -34,8 +27,8 @@ if command -v fzf >/dev/null; then
 fi
 
 # --- bat: cat with syntax highlighting ---
+# NOTE: BAT_THEME is set by 15-theme.zsh — it follows light/dark.
 if command -v bat >/dev/null; then
-  export BAT_THEME="OneHalfDark"
   export BAT_STYLE="numbers,changes,header"
   # Colorize man pages too
   export MANPAGER="sh -c 'col -bx | bat -l man -p'"

@@ -15,6 +15,39 @@
   autoload -Uz is-at-least && is-at-least 5.1 || return
 
   # =============================================================
+  # PALETTE — follows macOS light/dark.
+  # $_THEME_MODE is set by ~/.config/zsh/15-theme.zsh, which loads first
+  # and calls `p10k reload` whenever the system appearance changes.
+  # Numbers are 256-color terminal indices.
+  # =============================================================
+  # Global, not local: my_git_formatter below runs at prompt time, long after
+  # this setup function has returned. Locals would be gone by then.
+  typeset -g _tc_frame _tc_ruler _tc_dir _tc_dir_dim _tc_git _tc_dirty _tc_alert _tc_meta _tc_ok _tc_err
+  if [[ ${_THEME_MODE:-dark} == light ]]; then
+    _tc_frame=247   # mid grey  — visible on white without shouting
+    _tc_ruler=252   # pale grey — separator, barely there
+    _tc_dir=26      # deep blue
+    _tc_dir_dim=60  # muted blue-grey for truncated path segments
+    _tc_git=28      # dark green — clean
+    _tc_dirty=130   # burnt orange — has changes
+    _tc_alert=160   # dark red — conflicts, detached, rebase
+    _tc_meta=243    # grey — stashes, "no upstream"
+    _tc_ok=28       # prompt char, last command succeeded
+    _tc_err=160     # prompt char, last command failed
+  else
+    _tc_frame=240
+    _tc_ruler=236
+    _tc_dir=39      # bright blue
+    _tc_dir_dim=103
+    _tc_git=76      # bright green
+    _tc_dirty=178   # gold
+    _tc_alert=196   # bright red
+    _tc_meta=244
+    _tc_ok=76
+    _tc_err=196
+  fi
+
+  # =============================================================
   # SEGMENTS — deliberately minimal.
   # Left line 1:  directory + git
   # Left line 2:  the prompt character you type after
@@ -43,13 +76,13 @@
   # =============================================================
   typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
 
-  typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX='%F{240}╭─%f'
-  typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX='%F{240}╰─%f'
-  typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX='%F{240}├─%f'
+  typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX="%F{$_tc_frame}╭─%f"
+  typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="%F{$_tc_frame}╰─%f"
+  typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX="%F{$_tc_frame}├─%f"
 
   typeset -g POWERLEVEL9K_SHOW_RULER=true
   typeset -g POWERLEVEL9K_RULER_CHAR='─'
-  typeset -g POWERLEVEL9K_RULER_FOREGROUND=236
+  typeset -g POWERLEVEL9K_RULER_FOREGROUND=$_tc_ruler
 
   # =============================================================
   # PROMPT CHARACTER
@@ -57,10 +90,11 @@
   # that costs no horizontal space.
   # =============================================================
   typeset -g POWERLEVEL9K_PROMPT_CHAR_BACKGROUND=
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=76
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_ERROR_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=196
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VIINS_CONTENT_EXPANSION='❯'
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VICMD_CONTENT_EXPANSION='❮'
+  typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=$_tc_ok
+  typeset -g POWERLEVEL9K_PROMPT_CHAR_ERROR_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=$_tc_err
+  # Escaped: a bare $ would be read as the start of a variable during expansion.
+  typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VIINS_CONTENT_EXPANSION='\$'
+  typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VICMD_CONTENT_EXPANSION='#'
   typeset -g POWERLEVEL9K_PROMPT_CHAR_LEFT_PROMPT_LAST_SEGMENT_END_SYMBOL=''
   typeset -g POWERLEVEL9K_PROMPT_CHAR_LEFT_{LEFT,RIGHT}_WHITESPACE=
 
@@ -69,11 +103,11 @@
   # Shortens from the left when deep, always keeping the last two
   # segments plus anchors (the folder holding .git, package.json, etc).
   # =============================================================
-  typeset -g POWERLEVEL9K_DIR_FOREGROUND=39
+  typeset -g POWERLEVEL9K_DIR_FOREGROUND=$_tc_dir
   typeset -g POWERLEVEL9K_SHORTEN_STRATEGY=truncate_to_unique
   typeset -g POWERLEVEL9K_SHORTEN_DELIMITER='…'
-  typeset -g POWERLEVEL9K_DIR_SHORTENED_FOREGROUND=103
-  typeset -g POWERLEVEL9K_DIR_ANCHOR_FOREGROUND=39
+  typeset -g POWERLEVEL9K_DIR_SHORTENED_FOREGROUND=$_tc_dir_dim
+  typeset -g POWERLEVEL9K_DIR_ANCHOR_FOREGROUND=$_tc_dir
   typeset -g POWERLEVEL9K_DIR_ANCHOR_BOLD=true
   typeset -g POWERLEVEL9K_DIR_MAX_LENGTH=60
   typeset -g POWERLEVEL9K_DIR_MIN_COMMAND_COLUMNS=40
@@ -110,9 +144,9 @@
     # Color: green = clean, yellow = dirty, red = conflicted/rebasing
     local meta clean modified conflicted
     if (( $1 )); then
-      meta='%f' clean='%76F' modified='%178F' conflicted='%196F'
+      meta="%${_tc_meta}F" clean="%${_tc_git}F" modified="%${_tc_dirty}F" conflicted="%${_tc_alert}F"
     else
-      meta='%244F' clean='%244F' modified='%244F' conflicted='%244F'
+      meta="%${_tc_meta}F" clean="%${_tc_meta}F" modified="%${_tc_meta}F" conflicted="%${_tc_meta}F"
     fi
 
     local res
@@ -164,7 +198,7 @@
   # The formatter above emits its own branch icon and colors, so suppress
   # p10k's built-in identifier (it defaults to black = invisible on dark bg).
   typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_EXPANSION=
-  typeset -g POWERLEVEL9K_VCS_{CLEAN,UNTRACKED,MODIFIED,LOADING}_FOREGROUND=244
+  typeset -g POWERLEVEL9K_VCS_{CLEAN,UNTRACKED,MODIFIED,LOADING}_FOREGROUND=$_tc_meta
 
   # =============================================================
   # BEHAVIOR
