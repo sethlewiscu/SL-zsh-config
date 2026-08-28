@@ -1,0 +1,5 @@
+# never commit machine-local secrets or state
+.zshrc.local
+*.local
+.zsh_history
+.zcompdump*
