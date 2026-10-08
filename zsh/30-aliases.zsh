@@ -3,7 +3,8 @@
 
 # --- Listing (eza = ls with git status per file) ---
 if command -v eza >/dev/null; then
-  alias ls='eza --icons --group-directories-first'
+  # ls stays the real ls: eza's flags differ (e.g. -t needs a value), which breaks ls -lt.
+  alias ls='ls -G'
   alias ll='eza -l --icons --group-directories-first --git --time-style=long-iso'
   alias la='eza -la --icons --group-directories-first --git --time-style=long-iso'
   alias lt='eza --tree --level=2 --icons --group-directories-first'

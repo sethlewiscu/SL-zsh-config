@@ -9,7 +9,7 @@ command -v brew >/dev/null || {
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   eval "$(/opt/homebrew/bin/brew shellenv)"
 }
-brew install fzf eza bat fd zoxide git-delta direnv ripgrep gh jq
+brew install fzf eza bat fd zoxide git-delta direnv ripgrep gh jq gitleaks
 brew install --cask iterm2 font-meslo-lg-nerd-font
 
 echo "==> Oh My Zsh"
@@ -23,6 +23,9 @@ clone https://github.com/zsh-users/zsh-autosuggestions           "$ZC/plugins/zs
 clone https://github.com/zsh-users/zsh-syntax-highlighting       "$ZC/plugins/zsh-syntax-highlighting"
 clone https://github.com/zsh-users/zsh-history-substring-search  "$ZC/plugins/zsh-history-substring-search"
 clone https://github.com/zsh-users/zsh-completions               "$ZC/plugins/zsh-completions"
+
+echo "==> Git hooks (secret scan, no shadowed commands)"
+git -C "$DF" config core.hooksPath .githooks
 
 echo "==> Symlinks"
 mkdir -p "$HOME/.config"

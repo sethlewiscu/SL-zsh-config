@@ -1,0 +1,10 @@
+# Default gitleaks rules plus one for shell exports: any *KEY/TOKEN/SECRET/PASSWORD
+# variable assigned a literal value. Reference it instead: $(op read ...) or ~/.zshrc.local.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "shell-export-literal-secret"
+description = "Secret-looking variable assigned a literal value"
+regex = '''(?i)(?:export\s+)?[A-Z0-9_]*(?:API_KEY|APIKEY|TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE_KEY)[A-Z0-9_]*\s*=\s*['"]?([^\s'"$][^\s'"]{7,})'''
+secretGroup = 1

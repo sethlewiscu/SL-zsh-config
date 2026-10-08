@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Pre-commit guards for this public repo. Enabled by install.sh (core.hooksPath).
+set -euo pipefail
+fail=0
+
+# 1. No secrets. Secrets belong in ~/.zshrc.local (untracked) or `op read`.
+if command -v gitleaks >/dev/null; then
+  gitleaks git --staged --redact --no-banner --config "$(git rev-parse --show-toplevel)/.gitleaks.toml" || fail=1
+else
+  echo "pre-commit: gitleaks not installed (brew install gitleaks); refusing to commit unscanned." >&2
+  fail=1
+fi
+
+# 2. Don't shadow standard commands with a different program.
+#    `alias ls='ls -G'` is fine (same command); `alias ls='eza ...'` is not.
+std='ls|cat|grep|find|cd|rm|cp|mv|echo|sed|awk|head|tail|ps|du|df|diff|less|man|which|curl|ssh|git'
+while IFS= read -r line; do
+  file=${line%%:*}; rest=${line#*:}
+  name=$(sed -E "s/.*alias[[:space:]]+($std)=.*/\1/" <<<"$rest")
+  target=$(sed -E "s/.*alias[[:space:]]+[a-z]+=['\"]?([^ '\"]+).*/\1/" <<<"$rest")
+  target=${target#command }
+  if [[ "$target" != "$name" && "$target" != "command" ]]; then
+    echo "pre-commit: $file aliases standard command '$name' to '$target'. Use a new name instead (e.g. ll)." >&2
+    fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACM -z | xargs -0 grep -HE "^[[:space:]]*alias[[:space:]]+($std)=" 2>/dev/null || true)
+
+if (( fail )); then
+  echo "pre-commit: blocked. Bypass only if you are sure: git commit --no-verify" >&2
+  exit 1
+fi
