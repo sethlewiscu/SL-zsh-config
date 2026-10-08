@@ -9,6 +9,7 @@ Zsh configuration. Prompt: Powerlevel10k, two-line framed, path + git only.
 | `.zshrc` | Thin loader. Oh My Zsh + plugins, then sources the modules below. |
 | `zsh/10-env.zsh` | PATH, history (100k entries, timestamped, shared across terminals), shell options. |
 | `zsh/15-theme.zsh` | Follows macOS light/dark. Loads before the prompt so colors are set at init. |
+| `zsh/18-terminal.zsh` | New tabs/splits start in the current directory. Reports cwd to the terminal (OSC 7). |
 | `zsh/20-tools.zsh` | fzf, zoxide, direnv, bat integration. |
 | `zsh/25-completion.zsh` | Tab-completion behavior: menu select, case-insensitive, grouped. |
 | `zsh/30-aliases.zsh` | Listing, navigation, JSON/API, Claude Code shortcuts. |
@@ -21,6 +22,36 @@ Zsh configuration. Prompt: Powerlevel10k, two-line framed, path + git only.
 
 Modules load in numeric order. To disable one, rename it without the `.zsh`
 extension. To add your own, drop in a new numbered file.
+
+## New tabs open in the current directory
+
+Handled entirely in the shell — no iTerm2 setting required, so it survives a
+machine rebuild with nothing but `install.sh`.
+
+iTerm2 gives every shell an `ITERM_SESSION_ID` that looks like `w0t1p0:UUID`:
+window 0, tab 1, pane 0. Each shell writes its directory to
+`~/.cache/zsh/last-dir/w<window>` on every prompt, so the file always holds the
+directory of the tab you most recently typed in — which is the tab you just
+pressed Cmd-T from. A shell that starts as a new tab or split (tab or pane
+index above zero) and finds itself in `$HOME` moves to that recorded directory.
+
+A brand-new window (`t0p0`) is left at `$HOME` on purpose: a new window is a
+fresh start, a new tab is a continuation.
+
+Cost is ~0.2 ms per prompt — one small file write, no process launched.
+
+Two ways it backs off on its own:
+
+- Outside iTerm2, or with an unrecognized session id, it does nothing.
+- It only restores when the shell starts in `$HOME`, so turning on iTerm2's own
+  "Reuse previous session's directory" setting makes this a no-op rather than
+  something that fights it.
+
+The module also emits **OSC 7** — an escape sequence that tells the terminal
+which directory the shell is in, as a message to the terminal program rather
+than text on screen. That is what iTerm2's own working-directory feature reads,
+and Terminal.app, Ghostty, kitty and WezTerm understand it too. It is kept for
+portability and so iTerm2's "Open in Finder" and directory-aware features work.
 
 ## Machine-local settings
 
