@@ -35,6 +35,15 @@ setopt HIST_REDUCE_BLANKS
 setopt HIST_VERIFY             # expand !! into the line, don't run it blind
 setopt HIST_FCNTL_LOCK
 
+# --- Claude Code agent shells only (CLAUDECODE is set by Claude Code) ---
+# Agents write bash-style commands. NO_NOMATCH passes an unmatched glob through
+# as-is instead of erroring; NO_EQUALS keeps a word starting with `=` literal
+# instead of expanding it to a program path. SH_WORD_SPLIT is left off on
+# purpose: zsh functions from oh-my-zsh and nvm assume zsh's normal splitting.
+if [[ -n "$CLAUDECODE" ]]; then
+  setopt NO_NOMATCH NO_EQUALS
+fi
+
 # --- Directory navigation ---
 setopt AUTO_CD                 # type a directory name to cd into it
 setopt AUTO_PUSHD              # every cd pushes onto a stack
