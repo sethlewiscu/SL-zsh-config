@@ -105,3 +105,25 @@ _PAL_LIGHT+=(
   cyan         '#00727F'   br_cyan     '#007786'
   white        '#DAD3C4'   br_white    '#FFFFFF'
 )
+
+# --- Tools (fzf, autosuggestions, delta — applied in 15-theme.zsh) --
+#   ghost        autosuggestion text — faint on purpose, decorative
+#   hl_sel       fzf matched letters on the highlighted row (sel_bg);
+#                light mode needs a darker gold to stay readable there
+#   diff_add/del           delta: background of added / removed lines
+#   diff_add/del_emph      delta: the exact words that changed
+# fzf's other colors and delta's line numbers reuse roles above.
+
+_PAL_DARK+=(
+  ghost          '#5E6E8A'
+  hl_sel         $_PAL_DARK[dir]
+  diff_add       '#1E3B33'   diff_add_emph  '#2A5845'
+  diff_del       '#3E2433'   diff_del_emph  '#5E2E3D'
+)
+
+_PAL_LIGHT+=(
+  ghost          '#8F897D'
+  hl_sel         '#735000'
+  diff_add       '#DDEBD3'   diff_add_emph  '#BFDCB0'
+  diff_del       '#F5DAD3'   diff_del_emph  '#EBBAB0'
+)

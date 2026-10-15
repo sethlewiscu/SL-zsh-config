@@ -52,7 +52,9 @@ _checks() {
   local mode=$1
   reply=(fg:4.5 dir:4.5 dir_dim:4.5 git:4.5 dirty:4.5 alert:4.5 sym:4.5 meta:4.5
          frame:2.0 ruler:1.2
-         bold:4.5 cursor_text:cursor:4.5 sel_fg:sel_bg:4.5 cursor:3.0)
+         bold:4.5 cursor_text:cursor:4.5 sel_fg:sel_bg:4.5 cursor:3.0
+         ghost:2.5 hl_sel:sel_bg:4.5 sym:sel_bg:3.0
+         fg:diff_add:4.5 fg:diff_add_emph:4.5 fg:diff_del:4.5 fg:diff_del_emph:4.5)
   local c
   for c in $ANSI; do
     # The color that matches the background is a fill: black in dark,
@@ -196,6 +198,30 @@ swatches() {
   line_start; f red '  - return colours'; line_end
   line_start; f green '  + return colors'; line_end
   line_start; f br_green '  ✓ 42 passed'; f fg '  '; f br_red '✗ 1 failed'; f fg '  '; f br_yellow '⚠ 3 skipped'; f br_black '   (1.8s)'; line_end
+  blank
+
+  tools
+}
+
+# fzf, autosuggestions and delta, as 15-theme.zsh colors them
+tools() {
+  label 'tools — autosuggestion, fzf, git diff'
+  line_start; f frame '  ╰─ '; f sym "$DELTA "; f fg 'git ch'; f ghost 'eckout feature/starfleet-theme'; line_end
+  blank
+  line_start; f git '  > '; f fg 'thm'; f meta '  2/140'; line_end
+  line_start; fb sym sel_bg '  ▶ '; fb sel_fg sel_bg 'zsh/15-'; fb hl_sel sel_bg 't'
+  fb hl_sel sel_bg 'h'; fb sel_fg sel_bg 'e'; fb hl_sel sel_bg 'm'; fb sel_fg sel_bg 'e.zsh '; line_end
+  line_start; f fg '    bin/'; f dir 't'; f dir 'h'; f fg 'e'; f dir 'm'; f fg 'e-preview'; line_end
+  line_start; f green '  ✓ '; f fg 'bin/'; f dir 't'; f dir 'h'; f fg 'e'; f dir 'm'; f fg 'e-build'; line_end
+  blank
+  # delta: line-number gutter, then the changed line on its tinted background
+  local code='  ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE=' old="'fg=242'" new="\"fg=$P[ghost]\""
+  local room=$(( W - 16 - ${#code} ))
+  line_start; f meta '   12 '; f frame '⋮'; f meta '   12 '; f frame '│ '; f fg '  local mode="$1"'; line_end
+  line_start; f red '   13 '; f frame '⋮'; f meta '      '; f frame '│ '
+  fb fg diff_del $code; fb fg diff_del_emph $old; fb fg diff_del "${(l:room-${#old}:)}"; line_end
+  line_start; f meta '      '; f frame '⋮'; f green '   13 '; f frame '│ '
+  fb fg diff_add $code; fb fg diff_add_emph $new; fb fg diff_add "${(l:room-${#new}:)}"; line_end
   blank
 }
 

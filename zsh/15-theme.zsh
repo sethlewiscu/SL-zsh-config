@@ -36,31 +36,42 @@ _theme_query() {
 # (the prompt itself reads $_THEME_MODE from ~/.p10k.zsh)
 _theme_apply_tools() {
   local mode="$1"
+  local -A c   # this mode's palette (12-palette.zsh)
+  [[ $mode == dark ]] && c=("${(@kv)_PAL_DARK}") || c=("${(@kv)_PAL_LIGHT}")
 
-  if [[ $mode == dark ]]; then
-    # bat: syntax highlighting for `cat`, and delta inherits this
-    export BAT_THEME="OneHalfDark"
-    # delta: its own UI chrome (line numbers, +/- backgrounds)
-    export GIT_CONFIG_PARAMETERS="'delta.dark=true'"
-    # the grey ghost-text of autosuggestions
-    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=242'
-    local fzf_colors="
-      --color=fg:-1,bg:-1,hl:#89b4fa
-      --color=fg+:#cdd6f4,bg+:#313244,hl+:#89b4fa
-      --color=info:#94e2d5,prompt:#cba6f7,pointer:#f38ba8
-      --color=marker:#a6e3a1,spinner:#f5c2e7,header:#6c7086
-      --color=border:#45475a"
-  else
-    export BAT_THEME="OneHalfLight"
-    export GIT_CONFIG_PARAMETERS="'delta.light=true'"
-    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=250'
-    local fzf_colors="
-      --color=fg:-1,bg:-1,hl:#1e66f5
-      --color=fg+:#4c4f69,bg+:#ccd0da,hl+:#1e66f5
-      --color=info:#179299,prompt:#8839ef,pointer:#d20f39
-      --color=marker:#40a02b,spinner:#ea76cb,header:#8c8fa1
-      --color=border:#bcc0cc"
-  fi
+  # bat: syntax highlighting for `cat`
+  export BAT_THEME="OneHalf${(C)mode}"
+
+  # delta: same syntax theme as bat, palette colors for its own chrome
+  # (+/- backgrounds, line numbers). Set here, not in .gitconfig, because
+  # .gitconfig's syntax-theme would otherwise win over BAT_THEME in both
+  # modes. Git reads this as space-separated 'key=value' entries, each
+  # single-quoted — (qq) does the quoting.
+  local -a delta=(
+    "delta.$mode=true"
+    "delta.syntax-theme=OneHalf${(C)mode}"
+    "delta.minus-style=normal $c[diff_del]"
+    "delta.minus-emph-style=normal $c[diff_del_emph]"
+    "delta.plus-style=syntax $c[diff_add]"
+    "delta.plus-emph-style=syntax $c[diff_add_emph]"
+    "delta.line-numbers-minus-style=$c[red]"
+    "delta.line-numbers-plus-style=$c[green]"
+    "delta.line-numbers-zero-style=$c[meta]"
+    "delta.line-numbers-left-style=$c[frame]"
+    "delta.line-numbers-right-style=$c[frame]"
+  )
+  export GIT_CONFIG_PARAMETERS="${(j: :)${(@qq)delta}}"
+
+  # the ghost-text of autosuggestions
+  ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=$c[ghost]"
+
+  # fzf: gold matches, selection matches iTerm's, red stays for alerts only
+  local fzf_colors="
+    --color=fg:-1,bg:-1,gutter:-1,hl:$c[dir]
+    --color=fg+:$c[sel_fg],bg+:$c[sel_bg],hl+:$c[hl_sel]
+    --color=info:$c[meta],prompt:$c[git],pointer:$c[sym]
+    --color=marker:$c[green],spinner:$c[git],header:$c[meta]
+    --color=border:$c[frame]"
 
   export FZF_DEFAULT_OPTS="
     --height=60% --layout=reverse --border=rounded --info=inline

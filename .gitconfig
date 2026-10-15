@@ -18,7 +18,7 @@
 	navigate = true
 	line-numbers = true
 	side-by-side = false
-	syntax-theme = OneHalfDark
+	syntax-theme = OneHalfDark  # fallback; zsh sets it per light/dark mode (15-theme.zsh)
 	hyperlinks = true
 [merge]
 	conflictstyle = zdiff3
