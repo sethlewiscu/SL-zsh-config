@@ -41,16 +41,45 @@ _contrast() {
   (( REPLY = (a + 0.05) / (b + 0.05) ))
 }
 
+# ANSI color names in iTerm's order (Ansi 0 … Ansi 15)
+typeset -ra ANSI=(black red green yellow blue magenta cyan white
+                  br_black br_red br_green br_yellow br_blue br_magenta br_cyan br_white)
+
+# One row per pair: ROLE[:AGAINST]:MINIMUM. AGAINST defaults to bg.
+# 4.5 = text must be readable. Lower = decorative, only has to be visible.
+# A minimum of 0 = a fill color, never used as text; listed for the record.
+_checks() {
+  local mode=$1
+  reply=(fg:4.5 dir:4.5 dir_dim:4.5 git:4.5 dirty:4.5 alert:4.5 sym:4.5 meta:4.5
+         frame:2.0 ruler:1.2
+         bold:4.5 cursor_text:cursor:4.5 sel_fg:sel_bg:4.5 cursor:3.0)
+  local c
+  for c in $ANSI; do
+    # The color that matches the background is a fill: black in dark,
+    # white/br_white in light.
+    if [[ $mode == dark && $c == black ]] || [[ $mode == light && $c == (white|br_white) ]]; then
+      reply+=($c:0)
+    else
+      reply+=($c:4.5)
+    fi
+  done
+}
+
 check() {
-  local mode=$1 role need
+  local mode=$1 row role against need verdict
   local -A pal; [[ $mode == dark ]] && pal=("${(@kv)_PAL_DARK}") || pal=("${(@kv)_PAL_LIGHT}")
-  local -A min=(fg 4.5 meta 4.5 dir 4.5 dir_dim 4.5 git 4.5 dirty 4.5 alert 4.5 sym 4.5 frame 2.0 ruler 1.2)
   printf '%s  (background %s)\n' ${(U)mode} $pal[bg]
-  for role in fg dir dir_dim git dirty alert sym meta frame ruler; do
-    _contrast $pal[$role] $pal[bg]; need=$min[$role]
-    printf '  %-8s %s  %5.2f:1  needs %s  %s\n' $role $pal[$role] $REPLY $need \
-      $(( REPLY >= need ))
-  done | sed 's/  1$/  ok/; s/  0$/  TOO FAINT/'
+  _checks $mode
+  for row in $reply; do
+    local -a p=(${(s.:.)row})
+    role=$p[1]; need=$p[-1]; (( $#p == 3 )) && against=$p[2] || against=bg
+    _contrast $pal[$role] $pal[$against]
+    if (( need == 0 )); then verdict='fill'
+    elif (( REPLY >= need )); then verdict='ok'
+    else verdict='TOO FAINT'; fi
+    printf '  %-12s %s  vs %-7s %5.2f:1  needs %-3s  %s\n' \
+      $role $pal[$role] $against $REPLY ${need/#0/-} $verdict
+  done
   echo
 }
 
@@ -140,6 +169,33 @@ render() {
   ruler
   line1 "$(f dir_dim '~/D/w/…/')$(bold dir 'qa-agent')$(f dir '/src/tests') $(f alert 'DETACHED a1b2c3d4') $(f meta '(no upstream)')" "$SD"
   line2 sym ''
+  blank
+
+  swatches
+}
+
+# text in role $1 on a background of role $2, then back to the page bg
+fb() { _rgb $P[$1]; local fg=$REPLY; _rgb $P[$2]; print -rn -- $'\e[38;2;'"${fg};48;2;${REPLY}m$3"; _rgb $P[bg]; print -rn -- $'\e[48;2;'"${REPLY}m"; }
+
+# The terminal's own colors: what other programs paint with
+swatches() {
+  local c
+  label 'terminal colors — the 16 ANSI colors programs pick from (iTerm profile)'
+  line_start; f meta '  normal  '
+  for c in $ANSI[1,8]; do fb $c $c '█'; f $c " ${(r:8:)c}"; done; line_end
+  line_start; f meta '  bright  '
+  for c in $ANSI[9,16]; do fb $c $c '█'; f $c " ${(r:8:)${c#br_}}"; done; line_end
+  blank
+
+  label 'how they read in practice'
+  line_start; f fg '  '; bold bold 'bold text'; f fg '   cursor on the g of '; fb cursor_text cursor 'g'; f fg 'it'
+  f fg '   '; fb sel_fg sel_bg ' selected text '; line_end
+  line_start; f blue '  src/'; f fg '  '; f cyan 'link -> ../lib'; f fg '  '; f green 'run.sh*'
+  f fg '  '; f magenta 'photo.png'; f fg '  '; f yellow 'archive.zip'; f fg '  notes.md'; line_end
+  line_start; f cyan '  @@ -12,3 +12,4 @@'; line_end
+  line_start; f red '  - return colours'; line_end
+  line_start; f green '  + return colors'; line_end
+  line_start; f br_green '  ✓ 42 passed'; f fg '  '; f br_red '✗ 1 failed'; f fg '  '; f br_yellow '⚠ 3 skipped'; f br_black '   (1.8s)'; line_end
   blank
 }
 

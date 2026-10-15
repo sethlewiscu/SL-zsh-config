@@ -25,6 +25,11 @@ while IFS= read -r line; do
   fi
 done < <(git diff --cached --name-only --diff-filter=ACM -z | xargs -0 grep -HE "^[[:space:]]*alias[[:space:]]+($std)=" 2>/dev/null || true)
 
+# 3. The iTerm profile is generated from the palette; keep them in step.
+if git diff --cached --name-only | grep -qE '^(zsh/12-palette\.zsh|iterm/Starfleet\.json|bin/theme-build)$'; then
+  "$(git rev-parse --show-toplevel)/bin/theme-build" --check || fail=1
+fi
+
 if (( fail )); then
   echo "pre-commit: blocked. Bypass only if you are sure: git commit --no-verify" >&2
   exit 1

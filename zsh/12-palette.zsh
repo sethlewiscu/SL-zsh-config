@@ -53,3 +53,55 @@ typeset -gA _PAL_LIGHT=(
   alert    '#BF262C'
   sym      '#875C00'
 )
+
+# --- Terminal colors (iTerm profile, via `theme build`) -------------
+#   bold         text a program prints in bold
+#   cursor       block cursor — command gold, like the delta
+#   cursor_text  the letter under the cursor
+#   sel_bg/fg    highlighted (selected) text
+#
+# The 16 ANSI colors are the fixed set every command-line program picks
+# from (git, ls, test runners, …). Normal + bright of each. Where an
+# ANSI color IS a theme role (red = alert, yellow = gold, blue =
+# sciences), it's copied from the role so the two can't drift apart.
+#
+# black / white are mostly used as backgrounds and fills, so the one
+# that matches the background (black in dark, white in light) is
+# deliberately close to it.
+#
+# In light mode "bright" can't mean lighter — lighter on off-white is
+# harder to read. There, bright = same darkness, a little more vivid.
+
+_PAL_DARK+=(
+  bold         '#F2F5FA'
+  cursor       $_PAL_DARK[sym]
+  cursor_text  $_PAL_DARK[bg]
+  sel_bg       '#2F4A74'
+  sel_fg       '#F2F5FA'
+
+  black        '#2A3852'   br_black    '#7D8BA3'
+  red          $_PAL_DARK[alert]   br_red      '#FF8A80'
+  green        '#7CC77A'   br_green    '#A3DC9B'
+  yellow       $_PAL_DARK[dir]     br_yellow   '#FFD878'
+  blue         $_PAL_DARK[git]     br_blue     '#8AC2FF'
+  magenta      '#C792EA'   br_magenta  '#DDB6F5'
+  cyan         '#56C8D8'   br_cyan     '#8ADDE8'
+  white        '#C4CCD8'   br_white    '#F2F5FA'
+)
+
+_PAL_LIGHT+=(
+  bold         '#0F141C'
+  cursor       $_PAL_LIGHT[sym]
+  cursor_text  $_PAL_LIGHT[bg]
+  sel_bg       '#C9D8EC'
+  sel_fg       '#0F141C'
+
+  black        $_PAL_LIGHT[fg]     br_black    $_PAL_LIGHT[meta]
+  red          $_PAL_LIGHT[alert]  br_red      '#C8302A'
+  green        '#2F7A34'   br_green    '#1F7A2A'
+  yellow       $_PAL_LIGHT[dir]    br_yellow   '#8C6200'
+  blue         $_PAL_LIGHT[git]    br_blue     '#2367C2'
+  magenta      '#8A3DA3'   br_magenta  '#9446B0'
+  cyan         '#00727F'   br_cyan     '#007786'
+  white        '#DAD3C4'   br_white    '#FFFFFF'
+)

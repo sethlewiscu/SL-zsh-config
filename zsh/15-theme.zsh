@@ -11,6 +11,7 @@
 # macOS batches the write and the timestamp lags.
 #
 # Manual override:  theme dark | theme light | theme auto
+# Regenerate the iTerm profile after editing 12-palette.zsh:  theme build
 # ---------------------------------------------------------------
 
 zmodload zsh/stat 2>/dev/null
@@ -22,6 +23,8 @@ typeset -g _THEME_MODE=""          # "dark" | "light" — read by ~/.p10k.zsh
 typeset -g _THEME_PIN=""           # non-empty = manual override, stop auto-detecting
 typeset -g _THEME_MTIME=0
 typeset -g _THEME_LAST_POLL=0
+# The repo this file lives in (resolving the ~/.config/zsh symlink)
+typeset -g _THEME_REPO="${${(%):-%x}:A:h:h}"
 
 # --- Ask macOS which appearance is active ---
 _theme_query() {
@@ -122,11 +125,13 @@ theme() {
       _THEME_MTIME=0; _THEME_LAST_POLL=0
       _theme_sync
       echo "theme following macOS — currently $_THEME_MODE" ;;
+    build)
+      "$_THEME_REPO/bin/theme-build" ;;
     ""|status)
       echo "mode:   $_THEME_MODE"
       echo "source: ${_THEME_PIN:+pinned manually}${_THEME_PIN:-following macOS}" ;;
     *)
-      echo "usage: theme [dark|light|auto|status]"; return 1 ;;
+      echo "usage: theme [dark|light|auto|status|build]"; return 1 ;;
   esac
 }
 

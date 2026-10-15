@@ -41,4 +41,19 @@ for f in .zshrc .p10k.zsh .gitconfig .zprofile; do
 done
 backup_and_link "$DF/zsh" "$HOME/.config/zsh"
 
-echo "==> Done. Set iTerm2's font to 'MesloLGS Nerd Font', then: exec zsh"
+echo "==> iTerm2 Starfleet profile (colors only; font etc. come from 'Default')"
+DP="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+mkdir -p "$DP"
+backup_and_link "$DF/iterm/Starfleet.json" "$DP/Starfleet.json"
+guid=$(sed -n 's/.*"Guid": "\([^"]*\)".*/\1/p' "$DF/iterm/Starfleet.json")
+# iTerm rewrites its preferences when it quits, so only edit them while it's closed
+if ps -axo comm= | grep -q '/iTerm.app/Contents/MacOS/iTerm2$'; then
+  echo "    iTerm is running — make Starfleet the default yourself:"
+  echo "    Settings → Profiles → Starfleet → Other Actions… → Set as Default"
+else
+  defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "$guid"
+  echo "    Starfleet set as the default profile"
+fi
+
+echo "==> Done. In iTerm2, set the 'Default' profile's font to 'MesloLGS Nerd Font'"
+echo "    (Starfleet inherits it), then: exec zsh"

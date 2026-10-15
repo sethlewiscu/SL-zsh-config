@@ -1,0 +1,88 @@
+#!/usr/bin/env zsh
+# theme-build — generate the iTerm "Starfleet" profile from the palette
+# ---------------------------------------------------------------
+# iTerm can't read zsh, so this turns zsh/12-palette.zsh into an iTerm
+# dynamic profile: a JSON file iTerm loads automatically from
+# ~/Library/Application Support/iTerm2/DynamicProfiles/ (install.sh
+# symlinks it there). The output is committed, so a new Mac needs no
+# build step.
+#
+#   theme-build            write iterm/Starfleet.json
+#   theme-build --check    exit 1 if the committed file is out of date
+#
+# The profile only sets colors. Everything else (font, window size, …)
+# is inherited from the profile named "Default".
+# ---------------------------------------------------------------
+emulate -L zsh
+
+root=${0:A:h:h}
+out=$root/iterm/Starfleet.json
+source $root/zsh/12-palette.zsh
+
+# Fixed forever: iTerm tracks the profile (and "set as default") by this ID.
+typeset -r GUID='C7838045-F78E-45AF-AA55-A266C4C69EA3'
+
+# iTerm color key -> palette role. Ansi 0–15 are appended in order below.
+typeset -ra KEYS=(
+  'Background Color'     bg
+  'Foreground Color'     fg
+  'Bold Color'           bold
+  'Cursor Color'         cursor
+  'Cursor Text Color'    cursor_text
+  'Selection Color'      sel_bg
+  'Selected Text Color'  sel_fg
+  'Link Color'           git
+  'Badge Color'          dir
+)
+typeset -ra ANSI=(black red green yellow blue magenta cyan white
+                  br_black br_red br_green br_yellow br_blue br_magenta br_cyan br_white)
+
+# "#F0BE4A" -> iTerm color dict (components as 0–1 fractions)
+_color() {
+  local h=${1#\#}
+  printf '{ "Red Component": %.6f, "Green Component": %.6f, "Blue Component": %.6f, "Alpha Component": 1, "Color Space": "sRGB" }' \
+    $(( 16#${h[1,2]} / 255.0 )) $(( 16#${h[3,4]} / 255.0 )) $(( 16#${h[5,6]} / 255.0 ))
+}
+
+_generate() {
+  local -a pairs=($KEYS) entries
+  local i key role suffix
+  for (( i = 0; i < 16; i++ )); do pairs+=("Ansi $i Color" $ANSI[i+1]); done
+
+  for key role in $pairs; do
+    [[ -n $_PAL_DARK[$role] && -n $_PAL_LIGHT[$role] ]] || {
+      print -u2 "theme-build: palette role '$role' missing for ${key}"; return 1; }
+    # Plain key = dark, used only if "separate light/dark colors" is turned off
+    entries+=("\"$key\": $(_color $_PAL_DARK[$role])")
+    entries+=("\"$key (Dark)\": $(_color $_PAL_DARK[$role])")
+    entries+=("\"$key (Light)\": $(_color $_PAL_LIGHT[$role])")
+  done
+
+  print -r -- '{'
+  print -r -- '  "Profiles": [{'
+  print -r -- '    "Name": "Starfleet",'
+  print -r -- "    \"Guid\": \"$GUID\","
+  print -r -- '    "Dynamic Profile Parent Name": "Default",'
+  print -r -- '    "Use Separate Colors for Light and Dark Mode": true,'
+  print -r -- "    ${(pj:,\n    :)entries}"
+  print -r -- '  }]'
+  print -r -- '}'
+}
+
+json=$(_generate) || exit 1
+
+case ${1:-} in
+  --check)
+    if [[ -r $out && "$(<$out)" == "$json" ]]; then exit 0; fi
+    print -u2 "theme-build: iterm/Starfleet.json is out of date with zsh/12-palette.zsh — run: theme build"
+    exit 1 ;;
+  '')
+    mkdir -p ${out:h}
+    print -r -- $json > $out
+    print "wrote ${out/#$HOME/~}"
+    # iTerm watches its DynamicProfiles folder, not the file the symlink
+    # points to; touching the link itself makes it reload right away.
+    link="$HOME/Library/Application Support/iTerm2/DynamicProfiles/Starfleet.json"
+    [[ -L $link ]] && touch -h $link ;;
+  *) print -u2 "usage: theme-build [--check]"; exit 1 ;;
+esac
