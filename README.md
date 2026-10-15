@@ -1,6 +1,7 @@
 # dotfiles
 
-Zsh configuration. Prompt: Powerlevel10k, two-line framed, path + git only.
+Zsh configuration. Prompt: Powerlevel10k, two-line framed, in a Star Trek
+"Starfleet" theme that follows macOS light/dark — see [Theme](#theme-starfleet).
 
 ## Layout
 
@@ -8,7 +9,8 @@ Zsh configuration. Prompt: Powerlevel10k, two-line framed, path + git only.
 |---|---|
 | `.zshrc` | Thin loader. Oh My Zsh + plugins, then sources the modules below. |
 | `zsh/10-env.zsh` | PATH, history (100k entries, timestamped, shared across terminals), shell options. |
-| `zsh/15-theme.zsh` | Follows macOS light/dark. Loads before the prompt so colors are set at init. |
+| `zsh/12-palette.zsh` | Every color, light and dark, by role. The only place to change colors. |
+| `zsh/15-theme.zsh` | Follows macOS light/dark; colors bat, delta, fzf, autosuggestions. Loads before the prompt so colors are set at init. |
 | `zsh/18-terminal.zsh` | New tabs/splits start in the current directory. Reports cwd to the terminal (OSC 7). |
 | `zsh/20-tools.zsh` | fzf, zoxide, direnv, bat integration. |
 | `zsh/25-completion.zsh` | Tab-completion behavior: menu select, case-insensitive, grouped. |
@@ -19,6 +21,9 @@ Zsh configuration. Prompt: Powerlevel10k, two-line framed, path + git only.
 | `zsh/70-keys.zsh` | Keybindings. Loads last so plugin widgets exist. |
 | `.p10k.zsh` | Prompt definition. |
 | `.gitconfig` | Git settings, delta pager. |
+| `iterm/Starfleet.json` | iTerm2 color profile, generated from the palette by `theme build`. |
+| `bin/theme-preview` | Shows every prompt state and color in both modes; `--check` scores readability. |
+| `bin/theme-build` | Regenerates `iterm/Starfleet.json`. |
 
 Modules load in numeric order. To disable one, rename it without the `.zsh`
 extension. To add your own, drop in a new numbered file.
@@ -62,18 +67,52 @@ gitignored and sourced last:
 export CLICKUP_TOKEN="pk_..."
 ```
 
-## Theme
+## Theme: Starfleet
 
-Everything follows the macOS appearance setting: the prompt palette, iTerm2's
-background and ANSI colors, `bat`, `delta`, and `fzf`. Switching macOS between
-light and dark switches all of them, within 5 seconds at worst.
+![Starfleet theme in dark mode: the prompt after a failed command](images/starfleet-dark.png)
+
+![Starfleet theme in light mode: a clean prompt, then a failed command](images/starfleet-light.png)
+
+Original-series uniform colors on modern Starfleet structure: thin silver lines,
+a delta as the prompt symbol, gold, blue and red as accents. Dark mode is
+"bridge at night" (soft slate navy); light mode is "starship hull" (warm
+off-white).
+
+Each color means one thing:
+
+| Color | Means |
+|---|---|
+| Gold | Where you are: the current folder, the delta, the cursor. |
+| Blue | Git branch, all clean. |
+| Amber `●` | Uncommitted changes ("yellow alert"). |
+| Red | Alerts only: a failed command, a merge conflict, a detached HEAD. |
+| Silver / grey | Frame, ruler, and secondary text (stardate, timer, "no upstream"). |
+
+The right side of the first line shows, when relevant:
+
+- `ALERT 127 · not found` — the last command failed: its exit code, then what
+  that code means. Ctrl-C (`130 · interrupted`) and Ctrl-Z show in grey
+  instead, since you did those on purpose.
+- `T+12s` — how long the last command took, if it ran 3 seconds or longer.
+- `SD 26.10.15` — the stardate (year.month.day).
+
+### Light and dark
+
+Everything follows the macOS appearance setting: the prompt, iTerm2's
+background and ANSI colors, `bat`, `delta`, `fzf`, and autosuggestions.
+Switching macOS between light and dark switches all of them — iTerm2
+instantly, the shell within 5 seconds at worst.
 
 ```
 theme          # current mode
-theme dark     # pin to dark
-theme light    # pin to light
+theme dark     # pin the shell to dark
+theme light    # pin the shell to light
 theme auto     # go back to following macOS
+theme build    # regenerate the iTerm2 profile after a palette change
 ```
+
+Pinning affects the shell's colors only. iTerm2's background always follows
+macOS, so pin only to match a terminal that doesn't.
 
 Detection is cheap. Asking macOS directly costs ~15ms, so the per-prompt check
 first looks at the modification timestamp of the preferences file — a syscall
@@ -81,10 +120,32 @@ with no process launch — and only asks macOS when that timestamp moves. A
 5-second poll covers the case where macOS batches the write and the timestamp
 lags behind the actual setting.
 
-Prompt colors are 256-color terminal indices in the 16–255 range, which are
-fixed RGB values rather than palette slots. That means they render identically
-regardless of which color scheme iTerm2 has loaded, so the two layers can't
-fight each other.
+### Changing colors
+
+Change colors only in `zsh/12-palette.zsh`. The prompt, fzf, delta,
+autosuggestions and the iTerm2 profile all read from it. Colors are 24-bit
+hex, so they render exactly — no 256-color approximation.
+
+```
+bin/theme-preview           # every prompt state, terminal and tool color, both modes
+bin/theme-preview --check   # readability score for every color
+theme build                 # regenerate iterm/Starfleet.json; iTerm2 reloads it
+```
+
+`--check` measures contrast — how far a color stands out from what's behind
+it, on the WCAG accessibility scale. Text needs at least 4.5:1; decorative
+lines (ruler, frame, autosuggestions) are allowed to be fainter. Run the
+preview in a real iTerm2 tab; captured output just shows escape codes.
+
+iTerm2 can't read zsh, so `theme build` writes the palette out as an iTerm2
+*dynamic profile* — a JSON file it loads automatically. The file is committed,
+so a new machine needs no build step, and the pre-commit hook refuses a commit
+where the palette and the profile disagree. The profile sets colors only; font
+and everything else are inherited from iTerm2's `Default` profile.
+
+Syntax highlighting in `bat` and `delta` keeps the built-in `OneHalfDark` /
+`OneHalfLight` themes; the palette colors only delta's diff backgrounds and
+line numbers.
 
 ## Command reference
 
@@ -118,4 +179,10 @@ Use `trash <path>` instead of `rm` when you want recoverable deletion.
 git clone <this-repo> ~/.dotfiles && ~/.dotfiles/install.sh
 ```
 
-Then set iTerm2's font to **MesloLGS Nerd Font** and run `exec zsh`.
+`install.sh` links the Starfleet profile into iTerm2 and makes it the default.
+If iTerm2 is running at the time, it can't safely change that setting (iTerm2
+rewrites its preferences on quit), so it prints the one click instead:
+Settings → Profiles → Starfleet → Other Actions… → Set as Default.
+
+Then set the **Default** profile's font to **MesloLGS Nerd Font** (Starfleet
+inherits it) and run `exec zsh`.
