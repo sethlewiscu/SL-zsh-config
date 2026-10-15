@@ -1,6 +1,7 @@
 # ~/.p10k.zsh — Powerlevel10k prompt
-# Spec: two-line framed | path + git only | moderate git detail
-# Re-run the interactive wizard any time with: p10k configure
+# Theme: "Starfleet" — colors live in ~/.config/zsh/12-palette.zsh
+# Spec: two-line framed | path + git | alert, timer, stardate on the right
+# Don't re-run `p10k configure`: it would overwrite this hand-built file.
 # ---------------------------------------------------------------
 
 'builtin' 'local' '-a' 'p10k_config_opts'
@@ -18,54 +19,47 @@
   # PALETTE — follows macOS light/dark.
   # $_THEME_MODE is set by ~/.config/zsh/15-theme.zsh, which loads first
   # and calls `p10k reload` whenever the system appearance changes.
-  # Numbers are 256-color terminal indices.
+  # Colors are 24-bit hex, picked from the palette by role name.
   # =============================================================
-  # Global, not local: my_git_formatter below runs at prompt time, long after
-  # this setup function has returned. Locals would be gone by then.
-  typeset -g _tc_frame _tc_ruler _tc_dir _tc_dir_dim _tc_git _tc_dirty _tc_alert _tc_meta _tc_ok _tc_err
+  # Global, not local: the segment functions below run at prompt time,
+  # long after this setup function has returned. Locals would be gone.
+  typeset -gA _tc
   if [[ ${_THEME_MODE:-dark} == light ]]; then
-    _tc_frame=247   # mid grey  — visible on white without shouting
-    _tc_ruler=252   # pale grey — separator, barely there
-    _tc_dir=26      # deep blue
-    _tc_dir_dim=60  # muted blue-grey for truncated path segments
-    _tc_git=28      # dark green — clean
-    _tc_dirty=130   # burnt orange — has changes
-    _tc_alert=160   # dark red — conflicts, detached, rebase
-    _tc_meta=243    # grey — stashes, "no upstream"
-    _tc_ok=28       # prompt char, last command succeeded
-    _tc_err=160     # prompt char, last command failed
+    _tc=("${(@kv)_PAL_LIGHT}")
   else
-    _tc_frame=240
-    _tc_ruler=236
-    _tc_dir=39      # bright blue
-    _tc_dir_dim=103
-    _tc_git=76      # bright green
-    _tc_dirty=178   # gold
-    _tc_alert=196   # bright red
-    _tc_meta=244
-    _tc_ok=76
-    _tc_err=196
+    _tc=("${(@kv)_PAL_DARK}")
   fi
 
+  # The delta. md-navigation is the Nerd Font arrowhead closest to the
+  # Starfleet badge; terminals we haven't set up with that font get ▲.
+  typeset -g _sf_glyph='▲'
+  [[ $TERM_PROGRAM == (iTerm.app|vscode) ]] && _sf_glyph=$'\U000F0390'
+
   # =============================================================
-  # SEGMENTS — deliberately minimal.
-  # Left line 1:  directory + git
-  # Left line 2:  the prompt character you type after
-  # Right:        nothing. No clock, no versions, no timers.
+  # SEGMENTS
+  # Left line 1:   directory + git
+  # Left line 2:   the delta you type after
+  # Right line 1:  [alert] [timer] stardate — usually just the stardate
   # =============================================================
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
     dir
     vcs
     newline
-    prompt_char
+    sf_delta
   )
-  typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=()
+  typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
+    sf_alert
+    command_execution_time
+    sf_stardate
+    newline
+  )
 
   typeset -g POWERLEVEL9K_MODE=nerdfont-complete
   typeset -g POWERLEVEL9K_ICON_PADDING=none
   typeset -g POWERLEVEL9K_BACKGROUND=                    # transparent, no blocks
   typeset -g POWERLEVEL9K_{LEFT,RIGHT}_{LEFT,RIGHT}_WHITESPACE=
-  typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SUBSEGMENT_SEPARATOR=' '
+  typeset -g POWERLEVEL9K_LEFT_SUBSEGMENT_SEPARATOR=' '
+  typeset -g POWERLEVEL9K_RIGHT_SUBSEGMENT_SEPARATOR='  '
   typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SEGMENT_SEPARATOR=
   typeset -g POWERLEVEL9K_VISUAL_IDENTIFIER_EXPANSION='${P9K_VISUAL_IDENTIFIER}'
 
@@ -73,41 +67,113 @@
   # FRAME — the ╭─ / ╰─ brackets plus a ruler between commands.
   # This is the readability feature: when you scroll back through a
   # long Claude answer, the ruler marks exactly where it started.
+  #
+  # The ruler is drawn by _sf_ruler below, not by p10k: p10k's ruler
+  # can only repeat a single character, and ours carries the delta.
   # =============================================================
-  typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
+  typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=false     # _sf_ruler prints it
+  typeset -g POWERLEVEL9K_SHOW_RULER=false
 
-  typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX="%F{$_tc_frame}╭─%f"
-  typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="%F{$_tc_frame}╰─%f"
-  typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX="%F{$_tc_frame}├─%f"
+  typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX="%F{$_tc[frame]}╭─ %f"
+  typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="%F{$_tc[frame]}╰─ %f"
+  typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX="%F{$_tc[frame]}├─ %f"
 
-  typeset -g POWERLEVEL9K_SHOW_RULER=true
-  typeset -g POWERLEVEL9K_RULER_CHAR='─'
-  typeset -g POWERLEVEL9K_RULER_FOREGROUND=$_tc_ruler
+  # Blank line + ────────── ▲ ─── before every prompt except the first in
+  # a new terminal (nothing above it to separate from).
+  function _sf_ruler() {
+    if (( ! $+_sf_ruler_armed )); then
+      typeset -g _sf_ruler_armed=1
+      return
+    fi
+    # One column short of full width: writing the last column can make
+    # some terminals wrap and leave an extra blank line.
+    local -i w=$(( COLUMNS - 1 ))
+    (( w > 10 )) || return
+    print -P -- "\n%F{$_tc[ruler]}${(l:w-6::─:)}%F{$_tc[frame]} $_sf_glyph %F{$_tc[ruler]}───%f"
+  }
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _sf_ruler
 
   # =============================================================
-  # PROMPT CHARACTER
-  # Turns red when the last command failed — a free error indicator
-  # that costs no horizontal space.
+  # EXIT STATUS — the delta and the red-alert readout
+  # Codes above 128 mean "killed by signal (code − 128)". Signals are
+  # matched by name because the numbers differ by OS: Ctrl-Z is 146 on
+  # macOS, 148 on Linux. Ctrl-C and Ctrl-Z are you cancelling, not a
+  # failure, so they stay silver and the delta stays gold.
+  #
+  # _p9k__status is p10k's internal copy of $?, captured before any
+  # other precmd hook can overwrite it.
   # =============================================================
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_BACKGROUND=
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=$_tc_ok
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_ERROR_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=$_tc_err
-  # Escaped: a bare $ would be read as the start of a variable during expansion.
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VIINS_CONTENT_EXPANSION='\$'
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VICMD_CONTENT_EXPANSION='#'
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_LEFT_PROMPT_LAST_SEGMENT_END_SYMBOL=''
-  typeset -g POWERLEVEL9K_PROMPT_CHAR_LEFT_{LEFT,RIGHT}_WHITESPACE=
+  typeset -gA _sf_exit_words=(
+    1 failed  2 'usage error'  126 'not permitted'  127 'not found'
+  )
+  typeset -gA _sf_signal_words=(
+    INT interrupted  TSTP suspended  HUP 'hung up'  QUIT quit  ABRT aborted
+    KILL killed  SEGV crashed  BUS crashed  PIPE 'broken pipe'  TERM terminated
+  )
+  typeset -ga _sf_benign=(INT TSTP)
+
+  # Sets REPLY to the words for the last exit code; returns 0 if it
+  # was a real failure, 1 if success or a benign cancel.
+  function _sf_status() {
+    local -i code=$_p9k__status
+    REPLY=
+    (( code )) || return 1
+    if (( code > 128 && code - 127 <= $#signals )); then
+      local sig=$signals[code-127]       # $signals[1] is EXIT (0)
+      REPLY=${_sf_signal_words[$sig]:-${(L)sig}}
+      (( $_sf_benign[(Ie)$sig] )) && return 1
+    else
+      REPLY=${_sf_exit_words[$code]:-failed}
+    fi
+    return 0
+  }
+
+  function prompt_sf_alert() {
+    (( _p9k__status )) || return
+    if _sf_status; then
+      p10k segment -f $_tc[alert] -t "ALERT $_p9k__status · $REPLY"
+    else
+      p10k segment -f $_tc[meta] -t "$_p9k__status · $REPLY"
+    fi
+  }
+
+  function prompt_sf_delta() {
+    if _sf_status; then
+      p10k segment -f $_tc[alert] -t $_sf_glyph
+    else
+      p10k segment -f $_tc[sym] -t $_sf_glyph
+    fi
+  }
+  function instant_prompt_sf_delta() { p10k segment -f $_tc[sym] -t $_sf_glyph }
+
+  # =============================================================
+  # STARDATE — SD YY.MM.DD. %D{…} is expanded each time the prompt is
+  # drawn, so it rolls over at midnight without any work on our side.
+  # =============================================================
+  function prompt_sf_stardate() { p10k segment -f $_tc[meta] -t 'SD %D{%y.%m.%d}' }
+  function instant_prompt_sf_stardate() { prompt_sf_stardate }
+
+  # =============================================================
+  # TIMER — only for commands that took 3s or more. T+2m4s, T+12s.
+  # =============================================================
+  typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_THRESHOLD=3
+  typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_PRECISION=0
+  typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FORMAT='d h m s'
+  typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FOREGROUND=$_tc[meta]
+  typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_VISUAL_IDENTIFIER_EXPANSION=
+  typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_CONTENT_EXPANSION='T+${P9K_CONTENT// /}'
 
   # =============================================================
   # DIRECTORY
   # Shortens from the left when deep, always keeping the last two
   # segments plus anchors (the folder holding .git, package.json, etc).
   # =============================================================
-  typeset -g POWERLEVEL9K_DIR_FOREGROUND=$_tc_dir
+  typeset -g POWERLEVEL9K_DIR_FOREGROUND=$_tc[dir]
   typeset -g POWERLEVEL9K_SHORTEN_STRATEGY=truncate_to_unique
   typeset -g POWERLEVEL9K_SHORTEN_DELIMITER='…'
-  typeset -g POWERLEVEL9K_DIR_SHORTENED_FOREGROUND=$_tc_dir_dim
-  typeset -g POWERLEVEL9K_DIR_ANCHOR_FOREGROUND=$_tc_dir
+  typeset -g POWERLEVEL9K_DIR_SHORTENED_FOREGROUND=$_tc[dir_dim]
+  typeset -g POWERLEVEL9K_DIR_ANCHOR_FOREGROUND=$_tc[dir]
   typeset -g POWERLEVEL9K_DIR_ANCHOR_BOLD=true
   typeset -g POWERLEVEL9K_DIR_MAX_LENGTH=60
   typeset -g POWERLEVEL9K_DIR_MIN_COMMAND_COLUMNS=40
@@ -141,12 +207,12 @@
       return
     fi
 
-    # Color: green = clean, yellow = dirty, red = conflicted/rebasing
+    # Color: blue = clean, yellow alert = dirty, red alert = conflicted/rebasing
     local meta clean modified conflicted
     if (( $1 )); then
-      meta="%${_tc_meta}F" clean="%${_tc_git}F" modified="%${_tc_dirty}F" conflicted="%${_tc_alert}F"
+      meta="%F{$_tc[meta]}" clean="%F{$_tc[git]}" modified="%F{$_tc[dirty]}" conflicted="%F{$_tc[alert]}"
     else
-      meta="%${_tc_meta}F" clean="%${_tc_meta}F" modified="%${_tc_meta}F" conflicted="%${_tc_meta}F"
+      meta="%F{$_tc[meta]}" clean="%F{$_tc[meta]}" modified="%F{$_tc[meta]}" conflicted="%F{$_tc[meta]}"
     fi
 
     local res
@@ -198,7 +264,7 @@
   # The formatter above emits its own branch icon and colors, so suppress
   # p10k's built-in identifier (it defaults to black = invisible on dark bg).
   typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_EXPANSION=
-  typeset -g POWERLEVEL9K_VCS_{CLEAN,UNTRACKED,MODIFIED,LOADING}_FOREGROUND=$_tc_meta
+  typeset -g POWERLEVEL9K_VCS_{CLEAN,UNTRACKED,MODIFIED,LOADING}_FOREGROUND=$_tc[meta]
 
   # =============================================================
   # BEHAVIOR

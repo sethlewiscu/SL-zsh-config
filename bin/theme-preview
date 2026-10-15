@@ -1,0 +1,151 @@
+#!/usr/bin/env zsh
+# theme-preview — show every prompt state in both palettes, before wiring
+# ---------------------------------------------------------------
+# Paints each mode on its own background so you see the real look
+# regardless of which mode the terminal is in right now.
+#
+#   theme-preview            both modes
+#   theme-preview dark       one mode
+#   theme-preview --check    readability table only (no colors needed)
+#
+# Readability = WCAG contrast ratio of text against background.
+# 4.5:1 is the standard minimum for text; decorative lines are exempt.
+# ---------------------------------------------------------------
+emulate -L zsh
+setopt extended_glob
+
+source "${0:A:h}/../zsh/12-palette.zsh"
+
+# Nerd Font glyphs
+typeset -r DELTA=$'\U000F0390'    # md-navigation: closest shape to the badge
+typeset -r BRANCH=$''       # git branch
+
+# --- WCAG relative luminance and contrast ---------------------------
+_lum() {
+  local hex=${1#\#} c ch
+  local -F l=0 v
+  local -a w=(0.2126 0.7152 0.0722)
+  for ch in 1 2 3; do
+    (( v = 16#${hex[ch*2-1,ch*2]} / 255.0 ))
+    if (( v <= 0.03928 )); then (( v = v / 12.92 ))
+    else (( v = ((v + 0.055) / 1.055) ** 2.4 )); fi
+    (( l += w[ch] * v ))
+  done
+  REPLY=$l
+}
+_contrast() {
+  local -F a b
+  _lum $1; a=$REPLY
+  _lum $2; b=$REPLY
+  (( a < b )) && { local -F t=$a; a=$b; b=$t; }
+  (( REPLY = (a + 0.05) / (b + 0.05) ))
+}
+
+check() {
+  local mode=$1 role need
+  local -A pal; [[ $mode == dark ]] && pal=("${(@kv)_PAL_DARK}") || pal=("${(@kv)_PAL_LIGHT}")
+  local -A min=(fg 4.5 meta 4.5 dir 4.5 dir_dim 4.5 git 4.5 dirty 4.5 alert 4.5 sym 4.5 frame 2.0 ruler 1.2)
+  printf '%s  (background %s)\n' ${(U)mode} $pal[bg]
+  for role in fg dir dir_dim git dirty alert sym meta frame ruler; do
+    _contrast $pal[$role] $pal[bg]; need=$min[$role]
+    printf '  %-8s %s  %5.2f:1  needs %s  %s\n' $role $pal[$role] $REPLY $need \
+      $(( REPLY >= need ))
+  done | sed 's/  1$/  ok/; s/  0$/  TOO FAINT/'
+  echo
+}
+
+# --- painting helpers ----------------------------------------------
+_rgb() { local h=${1#\#}; REPLY="$((16#${h[1,2]}));$((16#${h[3,4]}));$((16#${h[5,6]}))"; }
+
+typeset -A P
+# Width: the terminal's, capped at 96. Falls back to 96 when output is
+# captured (no terminal to ask), so the layout never collapses.
+W=${COLUMNS:-0}
+(( W > 0 )) || W=$(tput cols 2>/dev/null || echo 0)
+(( W > 0 && W <= 96 )) || W=96
+
+f()    { _rgb $P[$1]; print -rn -- $'\e[38;2;'"${REPLY}m$2"; }   # colored text, bg untouched
+bold() { _rgb $P[$1]; print -rn -- $'\e[1;38;2;'"${REPLY}m$2"$'\e[22m'; }
+line_start() { _rgb $P[bg]; print -rn -- $'\e[48;2;'"${REPLY}m"; }
+line_end()   { print -r -- $'\e[K\e[0m'; }
+blank()      { line_start; line_end; }
+
+# visible width of a string (strip escapes; Nerd glyphs count as 1)
+_vis() { local s=${1//$'\e'\[[0-9;]#m/}; REPLY=${#s}; }
+
+ruler() {
+  line_start
+  f ruler "${(l:W-6::─:)}"; f frame " $DELTA "; f ruler "───"
+  line_end
+}
+
+# line1 LEFT RIGHT  — left = folder+git, right = alert/timer/stardate
+line1() {
+  local left="$(f frame '╭─ ')$1" right="$2"
+  _vis $left; local lw=$REPLY; _vis $right; local rw=$REPLY
+  local gap=$(( W - lw - rw - 1 ))
+  line_start
+  print -rn -- "$left"; print -rn -- "${(l:gap:: :)}"; print -rn -- "$right "
+  line_end
+}
+line2() { line_start; f frame '╰─ '; f ${1:-sym} "$DELTA "; f fg "$2"; line_end; }
+label() { line_start; f meta "  · $1"; line_end; }
+
+render() {
+  local mode=$1
+  [[ $mode == dark ]] && P=("${(@kv)_PAL_DARK}") || P=("${(@kv)_PAL_LIGHT}")
+  # Built after P is set — these capture escape codes for the current mode
+  local SD="$(f meta 'SD 26.10.15')" DIR="$(bold dir '~/.dotfiles')"
+  local title; [[ $mode == dark ]] && title='DARK — bridge at night' || title='LIGHT — starship hull'
+
+  blank; line_start; bold fg "  $title"; line_end; blank
+
+  label 'clean repo'
+  ruler
+  line1 "$DIR $(f git "$BRANCH main")" "$SD"
+  line2 sym 'git status'
+  blank
+
+  label 'uncommitted changes, 2 to push, 1 to pull, a stash'
+  ruler
+  line1 "$DIR $(f git "$BRANCH main ⇡2 ⇣1") $(f dirty '●') $(f meta '*1')" "$SD"
+  line2 sym 'git add -p'
+  blank
+
+  label 'last command failed (exit code 127)'
+  ruler
+  line1 "$DIR $(f git "$BRANCH main")" "$(f alert 'ALERT 127 · not found')  $SD"
+  line2 alert 'gti status'
+  blank
+
+  label 'you pressed Ctrl-C — not a failure'
+  ruler
+  line1 "$DIR $(f git "$BRANCH main")" "$(f meta '130 · interrupted')  $SD"
+  line2 sym ''
+  blank
+
+  label 'slow command finished'
+  ruler
+  line1 "$DIR $(f git "$BRANCH feature/starfleet-theme") $(f dirty '●')" "$(f meta 'T+2m04s')  $SD"
+  line2 sym 'npm test'
+  blank
+
+  label 'merge conflict'
+  ruler
+  line1 "$DIR $(f git "$BRANCH main") $(f dirty '●') $(f alert '✖2 conflict [merge]')" "$SD"
+  line2 sym 'git status'
+  blank
+
+  label 'detached HEAD, deep path shortened'
+  ruler
+  line1 "$(f dir_dim '~/D/w/…/')$(bold dir 'qa-agent')$(f dir '/src/tests') $(f alert 'DETACHED a1b2c3d4') $(f meta '(no upstream)')" "$SD"
+  line2 sym ''
+  blank
+}
+
+case ${1:-both} in
+  --check) check dark; check light ;;
+  dark|light) render $1 ;;
+  both) render dark; render light ;;
+  *) print -u2 "usage: theme-preview [dark|light|--check]"; exit 1 ;;
+esac
