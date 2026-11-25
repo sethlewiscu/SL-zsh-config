@@ -13,17 +13,22 @@ fi
 
 # 2. Don't shadow standard commands with a different program.
 #    `alias ls='ls -G'` is fine (same command); `alias ls='eza ...'` is not.
+#    Checks every alias on a line, not only lines that start with one, so the
+#    `command -v bat && { alias cat='bat'; }` form is caught too.
 std='ls|cat|grep|find|cd|rm|cp|mv|echo|sed|awk|head|tail|ps|du|df|diff|less|man|which|curl|ssh|git'
 while IFS= read -r line; do
   file=${line%%:*}; rest=${line#*:}
-  name=$(sed -E "s/.*alias[[:space:]]+($std)=.*/\1/" <<<"$rest")
-  target=$(sed -E "s/.*alias[[:space:]]+[a-z]+=['\"]?([^ '\"]+).*/\1/" <<<"$rest")
-  target=${target#command }
-  if [[ "$target" != "$name" && "$target" != "command" ]]; then
-    echo "pre-commit: $file aliases standard command '$name' to '$target'. Use a new name instead (e.g. ll)." >&2
-    fail=1
-  fi
-done < <(git diff --cached --name-only --diff-filter=ACM -z | xargs -0 grep -HE "^[[:space:]]*alias[[:space:]]+($std)=" 2>/dev/null || true)
+  [[ "$rest" =~ ^[[:space:]]*# ]] && continue   # comments, like the examples above
+  while IFS= read -r m; do
+    name=$(sed -E "s/.*alias[[:space:]]+([a-z]+)=.*/\1/" <<<"$m")
+    target=$(sed -E "s/.*=['\"]?//" <<<"$m")
+    if [[ "$target" != "$name" && "$target" != "command" ]]; then
+      echo "pre-commit: $file aliases standard command '$name' to '$target'. Use a new name instead (e.g. ll)." >&2
+      fail=1
+    fi
+  done < <(grep -oE "alias[[:space:]]+($std)=['\"]?[^ '\";}]+" <<<"$rest")
+done < <(git diff --cached --name-only --diff-filter=ACM -z |
+  xargs -0 grep -HE "(^|[^[:alnum:]_-])alias[[:space:]]+($std)=" 2>/dev/null || true)
 
 # 3. The iTerm profile is generated from the palette; keep them in step.
 if git diff --cached --name-only | grep -qE '^(zsh/12-palette\.zsh|iterm/Starfleet\.json|bin/theme-build)$'; then

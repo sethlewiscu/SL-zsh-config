@@ -16,7 +16,8 @@ else
 fi
 
 # --- Viewing ---
-command -v bat >/dev/null && { alias cat='bat --paging=never'; alias catp='bat'; }
+# cat stays the real cat: bat lacks cat flags like -v and -e (show hidden characters).
+command -v bat >/dev/null && alias catp='bat'
 
 # --- Navigation ---
 alias ..='cd ..'
